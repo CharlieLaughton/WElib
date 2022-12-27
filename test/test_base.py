@@ -1,5 +1,13 @@
-from WElib.base import *
+from WElib import (
+    Walker,
+    FunctionProgressCoordinator,
+    FunctionStepper,
+    Recycler,
+    SplitMerger,
+    StaticBinner,
+)
 import pytest
+
 
 def test_walker_init():
     state = [10.0]
@@ -12,6 +20,7 @@ def test_walker_init():
     assert w.history == []
     assert w.bin_id is None
     assert w.data == {}
+
 
 def test_walker_split():
     state = [10.0]
@@ -44,14 +53,13 @@ def test_walker_merge():
             n1 += 1
     assert 30 < n1 < 70
 
+
 def test_walker_copy():
     w1 = Walker([10.0], 0.5)
     w2 = w1.copy()
     assert w2 != w1
     assert w1.state == w2.state
 
-def test_fpc_init():
-    pc = FunctionProgressCoordinator(lambda x: x)
 
 def test_fpc_1pc():
     pc = FunctionProgressCoordinator(lambda x: x[0])
@@ -59,7 +67,8 @@ def test_fpc_1pc():
     assert w.pcs == []
     w = pc.run(w)
     assert w[0].pcs == [10.0]
-    
+
+
 def test_fpc_2pc():
     pc = FunctionProgressCoordinator(lambda x: (x[0], x[0] + 1))
     w = Walker([10], 0.5)
@@ -67,8 +76,9 @@ def test_fpc_2pc():
     w = pc.run(w)
     assert w[0].pcs == [10, 11]
 
+
 def test_static_binner_1d():
-    binner = StaticBinner([1., 2.])
+    binner = StaticBinner([1.0, 2.0])
     w1 = Walker([0.9], 0.1)
     w2 = Walker([1.0], 0.2)
     w3 = Walker([2.2], 0.3)
@@ -76,7 +86,7 @@ def test_static_binner_1d():
     pc = FunctionProgressCoordinator(lambda x: x[0])
     walkers = pc.run(walkers)
     assert binner.bin_weights == {}
-    walkers = binner.run(walkers) 
+    walkers = binner.run(walkers)
     assert walkers[0].bin_id == 0
     assert walkers[1].bin_id == 1
     assert walkers[2].bin_id == 2
@@ -86,34 +96,37 @@ def test_static_binner_1d():
     binner.reset()
     assert binner.bin_weights[0] == 0.0
 
+
 def test_static_binner_2d():
-    binner = StaticBinner([[1., 2.], [2., 3.]])
+    binner = StaticBinner([[1.0, 2.0], [2.0, 3.0]])
     w1 = Walker([0.9], 0.1)
     w2 = Walker([1.0], 0.2)
     w3 = Walker([2.2], 0.3)
     walkers = [w1, w2, w3]
     pc = FunctionProgressCoordinator(lambda x: (x[0], x[0] + 1.0))
     walkers = pc.run(walkers)
-    walkers = binner.run(walkers) 
+    walkers = binner.run(walkers)
     assert walkers[0].bin_id == (0, 0)
     assert walkers[1].bin_id == (1, 1)
     assert walkers[2].bin_id == (2, 2)
 
+
 def test_static_binner_reverse_1d():
-    binner = StaticBinner([2., 1.])
+    binner = StaticBinner([2.0, 1.0])
     w1 = Walker([0.9], 0.1)
     w2 = Walker([1.0], 0.2)
     w3 = Walker([2.2], 0.3)
     walkers = [w1, w2, w3]
     pc = FunctionProgressCoordinator(lambda x: x[0])
     walkers = pc.run(walkers)
-    walkers = binner.run(walkers) 
+    walkers = binner.run(walkers)
     assert walkers[0].bin_id == 2
     assert walkers[1].bin_id == 1
     assert walkers[2].bin_id == 0
 
+
 def test_static_binner_catches_bad_edges():
-    binner = StaticBinner([1., 3., 2.])
+    binner = StaticBinner([1.0, 3.0, 2.0])
     w1 = Walker([0.9], 0.1)
     w2 = Walker([1.0], 0.2)
     w3 = Walker([2.2], 0.3)
@@ -121,14 +134,16 @@ def test_static_binner_catches_bad_edges():
     pc = FunctionProgressCoordinator(lambda x: x[0])
     walkers = pc.run(walkers)
     with pytest.raises(Exception):
-        walkers = binner.run(walkers) 
+        walkers = binner.run(walkers)
+
 
 def test_function_stepper():
     stepper = FunctionStepper(lambda x: [x[0] + 1])
     w = Walker([1.0], 0.3)
     w = stepper.run(w)
     assert w[0].state == [2.0]
-    
+
+
 def test_recycler_forward_1d():
     recycler = Recycler(2.0)
     w1 = Walker([1.0], 0.1)
@@ -142,7 +157,9 @@ def test_recycler_forward_1d():
     walkers = pc.run(walkers)
     walkers = recycler.run(walkers)
     assert recycler.flux == 0.3
-    assert w3.state == [1.0]
+    assert walkers[2] != w3
+    assert walkers[2].state == [1.0]
+
 
 def test_recycler_retrograde_1d():
     recycler = Recycler(1.0, retrograde=True)
@@ -157,7 +174,9 @@ def test_recycler_retrograde_1d():
     walkers = pc.run(walkers)
     walkers = recycler.run(walkers)
     assert recycler.flux == 0.1
-    assert w1.state == [2.0]
+    assert walkers[0] != w1
+    assert walkers[0].state == [2.0]
+
 
 def test_recycler_forward_2d():
     recycler = Recycler([2.0, None])
@@ -172,13 +191,23 @@ def test_recycler_forward_2d():
     walkers = pc.run(walkers)
     walkers = recycler.run(walkers)
     assert recycler.flux == 0.5
-    assert w2.state == [1.0]
-    assert w3.state == [1.0]
-    w2.update([2.2])
-    w3.update([3.3])
+    assert walkers[1].state == [1.0]
+    assert walkers[2].state == [1.0]
+    walkers[1].update([2.2])
+    walkers[2].update([3.3])
     walkers = pc.run(walkers)
     recycler2 = Recycler([2.0, 4.0])
     walkers = recycler2.run(walkers)
-    assert w2.state == [2.2]
-    assert w3.state == [1.0]
+    assert walkers[1].state == [2.2]
+    assert walkers[2].state == [1.0]
     assert recycler2.flux == 0.3
+
+
+def test_splitmerger():
+    w1 = Walker([1.0], 0.1)
+    w1.bin_id = 0
+    sm = SplitMerger(4)
+    walkers = [w1]
+    walkers = sm.run(walkers)
+    assert len(walkers) == 4
+    assert walkers[0].weight == 0.025

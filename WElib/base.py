@@ -222,7 +222,11 @@ class Recycler(object):
                     else:
                         recycle = recycle and walkers[i].pcs[idim] < self.target_pcs[idim]
             if recycle:
-                walkers[i].restart()
+                replacement = Walker(walkers[i]._initial_state, walkers[i].weight,
+                                     walkers[i]._initial_state_id)
+                self.recycled_walkers.append(walkers[i])
+                walkers[i] = replacement
+                #walkers[i].restart()
                 weight = walkers[i].weight
                 self.flux += weight 
         self.flux_history.append(self.flux)
@@ -277,9 +281,9 @@ class SplitMerger(object):
             
         bins = {}
         for w in walkers:
-            if not w.bin in bins:
-                bins[w.bin] = Bin(w.bin)
-            bins[w.bin].add(w)
+            if not w.bin_id in bins:
+                bins[w.bin_id] = Bin(w.bin_id)
+            bins[w.bin_id].add(w)
         
         for bin in bins:
             bins[bin].split_merge(self.target_size)
