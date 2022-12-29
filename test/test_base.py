@@ -17,7 +17,7 @@ def test_walker_init():
     assert w.state == state
     assert w.state_id is not None
     assert w.pcs == []
-    assert w.history == []
+    assert w._history == []
     assert w.bin_id is None
     assert w.data == {}
 
@@ -35,7 +35,7 @@ def test_walker_split():
     assert w1.weight == weight / 2
     assert w1.state_id == w2.state_id
     assert w1.data == w2.data
-    assert w1.history == w2.history
+    assert w1._history == w2._history
 
 
 def test_walker_merge():
