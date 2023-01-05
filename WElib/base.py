@@ -16,9 +16,9 @@ Classes:
 """
 import numpy as np
 
-# from pathlib import Path
+from pathlib import Path
 
-# import json
+import json
 import itertools
 
 
@@ -207,6 +207,11 @@ class FunctionStepper(object):
     """
     A class for functions that move (update the states of) lists of walkers
 
+    Attributes
+    ----------
+    recorder : Recorder
+        keeps a record of all states visited by all walkers
+
     Methods
     -------
     run(walkers):
@@ -225,8 +230,8 @@ class FunctionStepper(object):
             any extra arguments required by the function
         """
 
-        self.function = function
-        self.args = args
+        self._function = function
+        self._args = args
         self.recorder = Recorder()
 
     def run(self, walkers):
@@ -248,7 +253,7 @@ class FunctionStepper(object):
             walkers = [walkers]
         self.recorder.record(walkers)
         for w in walkers:
-            state = self.function(w.state, *self.args)
+            state = self._function(w.state, *self._args)
             w.update(state)
         self.recorder.record(walkers)
         return walkers
@@ -676,3 +681,82 @@ class SplitMerger(object):
             new_walkers += bins[bin].walkers
 
         return new_walkers
+
+
+class Checkpointer(object):
+    """
+    A simple checkpointing class
+
+    Saves coordinates and metadata for a list of walkers in a specified
+    directory
+
+    Methods
+    -------
+    save : save a list of walkers to files in a checkpoint directory
+    load : load a list of walkers from files in a checkpoint directory
+    """
+
+    def __init__(self, dirname, state_serializer, ext=".dat", mode="r"):
+        self.dirname = Path(dirname)
+        if not (
+            hasattr(state_serializer, "serialize")
+            and hasattr(state_serializer, "deserialize")
+        ):
+            raise AttributeError(
+                "Error: state_serializer must have serialize and deserialize methods"
+            )
+        self.serializer = state_serializer
+        self.ext = ext
+        self.mode = mode
+
+        if "w" not in self.mode:
+            if not self.dirname.exists():
+                raise OSError("Error - checkpoint directory not found")
+        self.dirname.mkdir(parents=True, exist_ok=True)
+
+    def save(self, walkers):
+        if "w" not in self.mode:
+            raise OSError("Error: checkpoint directory is read-only")
+        metadata = {}
+        for i, w in enumerate(walkers):
+            name = "walker_{:05d}{}".format(i, self.ext)
+            metadata[name] = {}
+            metadata[name]["weight"] = w.weight
+            metadata[name]["state_id"] = w.state_id
+            metadata[name]["history"] = w._history
+            metadata[name]["initial_state"] = self.serializer.serialize(
+                w._initial_state
+            )
+            metadata[name]["initial_state_id"] = w._initial_state_id
+            metadata[name]["initial_pcs"] = w._initial_pcs
+            state_string = self.serializer.serialize(w.state)
+            statefile = self.dirname / name
+            statefile.write_text(state_string)
+
+        metadatafile = self.dirname / "_metadata_"
+        with metadatafile.open("w") as f:
+            json.dump(metadata, f)
+
+    def load(self):
+        metadatafile = self.dirname / "_metadata_"
+        if not metadatafile.exists():
+            raise OSError("Error: no metadata file found")
+        with metadatafile.open() as f:
+            metadata = json.load(f)
+        statefiles = list(self.dirname.glob("walker_*"))
+        statefiles.sort()
+        walkers = []
+        for i, name in enumerate(metadata):
+            statefile = Path(statefiles[i])
+            state = self.serializer.deserialize(statefile.read_text())
+            wt = metadata[name]["weight"]
+            state_id = metadata[name]["state_id"]
+            w = Walker(state, wt, state_id=state_id)
+            w._history = metadata[name]["history"]
+            w._initial_state = self.serializer.deserialize(
+                metadata[name]["initial_state"]
+            )
+            w._initial_state_id = metadata[name]["initial_state_id"]
+            w._initial_pcs = metadata[name]["initial_pcs"]
+            walkers.append(w)
+        return walkers

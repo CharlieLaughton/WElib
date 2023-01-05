@@ -5,6 +5,7 @@ from WElib import (
     Recycler,
     SplitMerger,
     StaticBinner,
+    Checkpointer,
 )
 import pytest
 
@@ -211,3 +212,42 @@ def test_splitmerger():
     walkers = sm.run(walkers)
     assert len(walkers) == 4
     assert walkers[0].weight == 0.025
+
+
+class ListSerializer:
+    def __init__(self):
+        pass
+
+    def serialize(self, data):
+        return " ".join([str(i) for i in data])
+
+    def deserialize(self, string):
+        return [float(v) for v in string.split()]
+
+
+def test_checkpointer(tmpdir):
+    state_serializer = ListSerializer()
+    cp = Checkpointer(tmpdir, state_serializer, mode="rw")
+    w1 = Walker([1.0], 0.1)
+    w2 = Walker([1.0], 0.2)
+    w3 = Walker([1.0], 0.3)
+    walkers = [w1, w2, w3]
+    cp.save(walkers)
+    new_walkers = cp.load()
+    assert len(new_walkers) == 3
+    assert new_walkers[0].state == walkers[0].state
+    assert new_walkers[1].weight == walkers[1].weight
+
+
+class BadListSerializer:
+    def __init__(self):
+        pass
+
+    def serialize(self, data):
+        return " ".join([str(i) for i in data])
+
+
+def test_checkpointer_serializer_check(tmpdir):
+    state_serializer = BadListSerializer()
+    with pytest.raises(Exception):
+        Checkpointer(tmpdir, state_serializer, mode="rw")
