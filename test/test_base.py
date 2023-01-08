@@ -212,6 +212,10 @@ def test_splitmerger():
     walkers = sm.run(walkers)
     assert len(walkers) == 4
     assert walkers[0].weight == 0.025
+    walkers = [w1.copy() for i in range(6)]
+    walkers = sm.run(walkers)
+    assert len(walkers) == 4
+    assert walkers[0].weight == 0.15
 
 
 class ListSerializer:
