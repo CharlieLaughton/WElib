@@ -111,6 +111,8 @@ class Walker(object):
         new.bin_id = self.bin_id
         new._history = self._history.copy()
         new.data = self.data.copy()
+        new._initial_state = self._initial_state
+        new._initial_state_id = self._initial_state_id
         new._initial_pcs = self._initial_pcs
         return new
 
@@ -197,8 +199,7 @@ class Walker(object):
         return self, new_walker
 
     def __repr__(self):
-        return "<WElib.Walker weight {}, progress coordinate {}, \
-            bin assignment {}>".format(
+        return "<WElib.Walker weight = {}, pcs = {}, bin = {}>".format(
             self.weight, self.pcs, self.bin_id
         )
 
@@ -322,7 +323,7 @@ class Recorder(object):
 
     def purge(self, walkers):
         """
-        Remove unneeded sates from the archive, to save memory
+        Remove unneeded states from the archive, to save memory
 
         Parameters
         ----------
@@ -414,13 +415,15 @@ class StaticBinner(object):
     Attributes
     ----------
     bin_weights : dict
-        keyed by bin ID, the _cumulative_ weight in the bin
+        keyed by bin ID, the _current_ weight in the bin
+    mean_bin_weights : dict
+        keyed by bin ID, the _mean_ weight in each bin, since start or reset (see below)
 
     Methods:
     run(walkers)
         assign bin ID to each walker in a list of walkers, update the bin_weight data
     reset()
-        zero the memory of cumulative bin weights
+        zero the memory of mean bin weights
     """
 
     def __init__(self, edges):
@@ -443,6 +446,8 @@ class StaticBinner(object):
         if n_dim == 1:
             self.edges = [self.edges]
         self.bin_weights = {}
+        self._cumulative_bin_weights = {}
+        self._ncycles = 0
 
     def run(self, walkers):
         """
@@ -458,6 +463,7 @@ class StaticBinner(object):
             walkers with updated bin IDs
         """
 
+        self._ncycles += 1
         if not isinstance(walkers, list):
             walkers = [walkers]
         pcs = np.atleast_2d([w.pcs for w in walkers])
@@ -470,16 +476,30 @@ class StaticBinner(object):
             bin_ids = [z for z in zip(*bin_ids)]
         else:
             bin_ids = bin_ids[0]
+
+        for k in self.bin_weights:
+            self.bin_weights[k] = 0.0
         for i, bin_id in enumerate(bin_ids):
             walkers[i].bin_id = bin_id
             if bin_id not in self.bin_weights:
                 self.bin_weights[bin_id] = 0.0
+            if bin_id not in self._cumulative_bin_weights:
+                self._cumulative_bin_weights[bin_id] = 0.0
             self.bin_weights[bin_id] += walkers[i].weight
+            self._cumulative_bin_weights[bin_id] += walkers[i].weight
         sorted_dict = {}
         for key in sorted(self.bin_weights):
             sorted_dict[key] = self.bin_weights[key]
         self.bin_weights = sorted_dict
+        sorted_dict = {}
+        for key in sorted(self._cumulative_bin_weights):
+            sorted_dict[key] = self._cumulative_bin_weights[key]
+        self._cumulative_bin_weights = sorted_dict
         return walkers
+
+    @property
+    def mean_bin_weights(self):
+        return {k: w / self._ncycles for k, w in self._cumulative_bin_weights.items()}
 
     def reset(self):
         """
@@ -490,8 +510,9 @@ class StaticBinner(object):
         None
         """
 
-        for k in self.bin_weights:
-            self.bin_weights[k] = 0.0
+        self._ncycles = 0
+        for k in self._cumulative_bin_weights:
+            self._cumulative_bin_weights[k] = 0.0
 
 
 class Recycler(object):

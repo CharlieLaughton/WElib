@@ -19,3 +19,6 @@ classifiers = [
 
 [project.urls]
 "Homepage" = "https://bitbucket.org/claughton/WElib.git"
+
+[tool.setuptools]
+packages = ["WElib"]

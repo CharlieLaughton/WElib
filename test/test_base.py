@@ -57,9 +57,11 @@ def test_walker_merge():
 
 def test_walker_copy():
     w1 = Walker([10.0], 0.5)
+    w1.update([2.0])
     w2 = w1.copy()
     assert w2 != w1
     assert w1.state == w2.state
+    assert w1._initial_state == w2._initial_state
 
 
 def test_fpc_1pc():
