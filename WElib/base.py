@@ -511,8 +511,7 @@ class StaticBinner(object):
         """
 
         self._ncycles = 0
-        for k in self._cumulative_bin_weights:
-            self._cumulative_bin_weights[k] = 0.0
+        self._cumulative_bin_weights = {}
 
 
 class Recycler(object):
@@ -596,11 +595,8 @@ class Recycler(object):
                             recycle and walkers[i].pcs[idim] < self.target_pcs[idim]
                         )
             if recycle:
-                replacement = Walker(
-                    walkers[i]._initial_state,
-                    walkers[i].weight,
-                    walkers[i]._initial_state_id,
-                )
+                replacement = walkers[i].copy()
+                replacement.restart()
                 self.recycled_walkers.append(walkers[i])
                 walkers[i] = replacement
                 weight = walkers[i].weight

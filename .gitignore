@@ -1,6 +1,6 @@
 __pycache__
 .vscode
-.ipynb_checkpointst
+.ipynb_checkpoints
 *.lock
 *.egg-info
 dist/*
