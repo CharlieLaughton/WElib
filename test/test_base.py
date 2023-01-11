@@ -88,16 +88,16 @@ def test_static_binner_1d():
     walkers = [w1, w2, w3]
     pc = FunctionProgressCoordinator(lambda x: x[0])
     walkers = pc.run(walkers)
-    assert binner.bin_weights == {}
+    assert binner.mean_bin_weights == {}
     walkers = binner.run(walkers)
     assert walkers[0].bin_id == 0
     assert walkers[1].bin_id == 1
     assert walkers[2].bin_id == 2
-    assert binner.bin_weights[0] == 0.1
-    assert binner.bin_weights[1] == 0.2
-    assert binner.bin_weights[2] == 0.3
+    assert binner.mean_bin_weights[0] == 0.1
+    assert binner.mean_bin_weights[1] == 0.2
+    assert binner.mean_bin_weights[2] == 0.3
     binner.reset()
-    assert binner.bin_weights[0] == 0.0
+    assert binner.mean_bin_weights == {}
 
 
 def test_static_binner_2d():
